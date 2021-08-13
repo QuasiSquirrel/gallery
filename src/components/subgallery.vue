@@ -1,178 +1,154 @@
 <template>
-  <div class="gallery">
-    <router-link :to="'/gallery'">Back to gallery</router-link>
-    <div id="left" @click="left()">Left</div>
-    <div id="gallery">
-      <img v-for="pic in gallery" :key="pic" :src="pic" alt="Gallery picutre" ref="picture">
-    </div>
-    <div id="right" @click="right()">Right</div>
-  </div>
+   <div class="gallery">
+      <router-link :to="'/gallery'">Back to gallery</router-link>
+      <div
+         id="gallery"
+         @mousemove.prevent="drag($event)"
+         @mousedown.prevent="startdrag($event)"
+         @mouseup="stopdrag"
+         @mouseleave="stopdrag"
+      >
+         <img
+         v-for="(value, name) in gallery"
+         :key="name"
+         :src="`/gallery/${$route.params.id}/${name}`"
+         :id="name"
+         alt="Gallery picutre"
+         ref="picture"
+         />
+      </div>
+   </div>
 </template>
 
 <script>
 export default {
-  data(){
-    return{
-      position: 2,
-      id: null,
-      gallery: []
-    }
-  },
-  methods: {
-    left(){
-      this.position --;
-      let length = this.gallery.length;      
-      if(this.position < 0){
-        this.position = (length - 1);
+   data() {
+      return {
+         gallery: {},
+         currentX: 0,
+         previousX: 0,
+         target: undefined,
+         dragging: false,
+         velocity: 0,
+         topPicture: undefined,
+         galleryEl: undefined
       }
-      for(let i = 0; i < length; i++){
-        this.$refs.picture[i].className = '';
+   },
+   methods: {
+      drag(e) {
+         if (this.dragging) {
+            this.previousX = this.currentX;
+            this.currentX = e.clientX;
+            this.pictureIterator(this.currentX - this.previousX)
+         }
+      },
+      startdrag(e) {
+         this.currentX = e.clientX;
+         this.previousX = this.currentX;
+         this.dragging = true;
+         this.target = e.target;
+      },
+      stopdrag() {
+         if(this.dragging){
+            this.dragging = false;
+            this.velocity = this.currentX - this.previousX;
+            this.animate(this.velocity);
+         }
+         
+      },
+      animate(velocity) {
+         requestAnimationFrame(() => {
+            if (this.dragging)
+               return;
+            if (velocity < 1 && velocity > -1){
+               setTimeout(() => {
+                  this.centerElements((this.topPicture.offsetLeft + this.topPicture.offsetWidth / 2) - this.galleryEl.clientWidth / 2)
+               }, 300);
+               return;
+            }
+            this.pictureIterator(velocity)
+            this.animate(velocity*0.85);
+         })
+      },
+      centerElements(distance){
+         requestAnimationFrame(() => {
+            if(distance === 0)
+               return
+            if(distance < 0 && distance > -3){
+               this.pictureIterator(1)
+            }
+            else if (distance > 0 && distance < 3){
+               this.pictureIterator(-1)
+            }
+            else if(distance < 0){
+               this.pictureIterator(3)
+            }
+            else {
+               this.pictureIterator(-3)
+            }
+            this.centerElements((this.topPicture.offsetLeft + this.topPicture.offsetWidth / 2) - this.galleryEl.clientWidth / 2)
+         })
+      },
+      pictureIterator(coefficient){
+         for (let i of this.$refs.picture) {
+            this.gallery[i.id] = this.gallery[i.id] + coefficient;
+            const eccentricAngle = (this.gallery[i.id] / (this.galleryEl.clientWidth)) * Math.PI
+            i.style.height = (Math.sin(eccentricAngle) + 1) * 14 + 1 + "vw";
+            i.style.top = (this.galleryEl.clientHeight / 2 - i.offsetHeight / 2) + Math.round(this.galleryEl.clientHeight / 4 * Math.sin(eccentricAngle)) + 'px';
+            i.style.left = (this.galleryEl.clientWidth / 2 - i.offsetWidth / 2) + Math.round(this.galleryEl.clientWidth / 3 * -Math.cos(eccentricAngle)) + 'px';
+            i.style['z-index'] = Math.round(i.offsetTop + i.offsetHeight/2);
+            if(i.style['z-index'] > this.topPicture.style['z-index'])
+               this.topPicture = i;
+         }
       }
-      for(let i = -2; i <= 2; i++){
-        if(i + this.position < 0){
-          this.$refs.picture[length + i + this.position].classList.add('pic' + (i + 2))
-          }
-        else if(i + this.position >= length){
-          this.$refs.picture[this.position + i - length].classList.add('pic' + (i + 2))
-        }
-        else{
-          this.$refs.picture[i + this.position].classList.add('pic' + (i + 2))
-        }
+   },
+   created() {
+      //ideally you want to a GET call to the server to serve you
+      //the gallery picture paths array
+      for (let i = 1; i < 9; i++) {
+         this.gallery["pic" + i + ".jpg"] = 0
       }
-    },
-    right(){
-      this.position ++;
-      let length = this.gallery.length;
-      for(let i = 0; i < length; i++){
-        this.$refs.picture[i].className = '';
+   },
+   mounted() {
+      this.galleryEl = document.getElementById("gallery");
+
+      for (let i = 0; i < this.galleryEl.children.length; i++){
+         this.$refs.picture[i].style.visibility = 'hidden';
       }
-      for(let i = -2; i <= 2; i++){
-        if(i + this.position >= length)
-          this.$refs.picture[this.position + i - length].classList.add('pic' + (i + 2))
-        else if(this.position === 1 && i === -2)
-          this.$refs.picture[length - 1].classList.add('pic0')
-        else{
-          this.$refs.picture[this.position + i].classList.add('pic' + (i + 2))
-        }
-      }
-      if(this.position > (length - 1))
-        this.position = 0;
-    }
-  },
-  created(){
-    //ideally you want to a GET call to the server to serve you
-    //the gallery picture paths array
-    this.id = this.$route.params.id
-    for(let i = 1; i < 9; i++){
-      this.gallery.push('/gallery/' + this.id + '/pic' + i + '.jpg')
-    }
-  },
-  mounted(){
-      for(let i = 0; i < 5; i++){
-        this.$refs.picture[i].classList.add('pic' + i);
-    }
-  }
-}
+
+      window.addEventListener("load", () => {
+         for (let i = 0; i < this.galleryEl.children.length; i++){
+               this.$refs.picture[i].style.visibility = 'visible';
+               this.gallery[this.$refs.picture[i].id] = (i/this.galleryEl.children.length) * this.galleryEl.clientWidth * 2;
+               const eccentricAngle = (this.gallery[this.$refs.picture[i].id] / (this.galleryEl.clientWidth)) * Math.PI;
+               this.$refs.picture[i].style.height = (Math.sin(eccentricAngle) + 1) * 14 + 1 + "vw";
+               this.$refs.picture[i].style.top = (this.galleryEl.clientHeight / 2 - this.$refs.picture[i].offsetHeight / 2) + Math.round(this.galleryEl.clientHeight / 4 * Math.sin(eccentricAngle)) + 'px'
+               this.$refs.picture[i].style.left = (this.galleryEl.clientWidth / 2 - this.$refs.picture[i].offsetWidth / 2) + Math.round(this.galleryEl.clientWidth / 3 * -Math.cos(eccentricAngle)) + 'px';
+               this.$refs.picture[i].style['z-index'] = Math.round(this.$refs.picture[i].offsetTop + this.$refs.picture[i].offsetHeight/2);
+         }
+      })
+      this.topPicture = this.galleryEl.childNodes[0];
+   }
+};
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-#goright{
-  border: 1px solid black;
-  height: 100vh;
-  width: 30px;
-  float: right;
-  margin: auto;
-  z-index: 4;
+<style>
+* {
+   box-sizing: border-box;
+   margin: 0;
 }
 
-#goleft{
-  border: 1px solid black;
-  height: 100vh;
-  width: 30px;
-  float: left;
-  margin: auto;
-  z-index: 4;
+#gallery {
+   display: flex;
+   align-items: center;
+   height: 80vh;
+   width: 100vw;
 }
 
-#gallery{
-  display: flex;
-  align-items: center;
-  height: 80vh;
-}
-
-#gallery img{
-  margin-bottom: 15%;
-  visibility: hidden;
-  max-height: 0;
-  max-width: 0;
-  object-fit: cover;
-  border: 3px solid rgba(70, 76, 106, 1);
-  outline: 1px solid black;
-  transition: flex 0.5s, margin-bottom 0.5s, ease-out;
-}
-
-#gallery .big{
-  min-height: 90vh;
-  min-width: auto;
-}
-
-#gallery .pic0{
-  visibility: visible;
-  flex: 0.3;
-  z-index: 1;
-  margin-right: -7%;
-  margin-bottom: 10%;
-  box-shadow: 1px 1px 1px rgba(70, 76, 106, 0.5);
-  max-height: 30vh;
-  max-width: 30vw;
-  order: 1;
-}
-
-#gallery .pic1{
-  visibility: visible;
-  flex: 0.6;
-  z-index: 2;
-  margin-right: -7%;
-  margin-bottom: 5%;
-  box-shadow: 3px 3px 2px rgba(70, 76, 106, 0.5);
-  max-height: 40vh;
-  max-width: 50vw;
-  order: 2;
-}
-
-#gallery .pic2{
-  visibility: visible;
-  flex: 1;
-  z-index: 3;
-  margin-bottom: 0;
-  box-shadow: 3px 3px 2px rgba(70, 76, 106, 0.5);
-  max-height: 100vh;
-  max-width: 100vw;
-  order: 3;
-}
-
-#gallery .pic3{
-  visibility: visible;
-  flex: 0.6;
-  z-index: 2;
-  margin-left: -7%;
-  margin-bottom: 5%;
-  box-shadow: 3px 3px 2px rgba(70, 76, 106, 0.5);
-  max-height: 40vh;
-  max-width: 50vw;
-  order: 4;
-}
-
-#gallery .pic4{
-  visibility: visible;
-  flex: 0.3;
-  z-index: 1;
-  margin-left: -7%;
-  margin-bottom: 10%;
-  box-shadow: 1px 1px 1px rgba(70, 76, 106, 0.5);
-  max-height: 30vh;
-  max-width: 30vw;
-  order: 5;
+#gallery img {
+   position: absolute;
+   max-height: 95vh;
+   max-width: 95vw;
 }
 </style>
